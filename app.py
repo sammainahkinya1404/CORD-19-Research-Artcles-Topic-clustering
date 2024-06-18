@@ -81,8 +81,6 @@ topics = display_topics(optimal_lda_model, tfidf_vectorizer.get_feature_names_ou
 for i, topic in enumerate(topics):
     st.write(f"**Topic {i+1}:** {topic}")
 
-
-
 # K-Means Clustering
 st.write("### K-Means Clustering")
 num_clusters = st.slider("Select Number of Clusters for K-Means", min_value=2, max_value=10, value=3, step=1)
@@ -108,8 +106,6 @@ ax.set_ylabel('Principal Component 2')
 ax.legend()
 st.pyplot(fig)
 
-
-
 # Cluster Validation
 st.write("### Cluster Validation")
 silhouette_avg = silhouette_score(optimal_lda_output, cluster_labels)
@@ -122,4 +118,23 @@ pca_output = pca.fit_transform(optimal_lda_output)
 cluster_labels_str = [str(label) for label in cluster_labels]
 fig = px.scatter(x=pca_output[:, 0], y=pca_output[:, 1], color=cluster_labels_str)
 st.plotly_chart(fig)
+
+# User input for text classification
+st.write("### Predict Topic for Input Text")
+user_input = st.text_area("Enter text (abstract or part of an article):", "")
+if st.button("Predict Topic"):
+    if user_input:
+        processed_input = preprocess_text(user_input)
+        input_tfidf = tfidf_vectorizer.transform([processed_input])
+        lda_output = optimal_lda_model.transform(input_tfidf)
+        topic_distribution = lda_output[0]
+        predicted_topic = topic_distribution.argmax()
+        st.write(f"**Predicted Topic:** Topic {predicted_topic + 1}")
+        st.write(f"**Topic Keywords:** {topics[predicted_topic]}")
+
+        # Predict cluster
+        cluster_label = kmeans_model.predict(lda_output)[0]
+        st.write(f"**Predicted Cluster:** Cluster {cluster_label + 1}")
+    else:
+        st.write("Please enter some text to predict its topic and cluster.")
 
