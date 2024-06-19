@@ -3,7 +3,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from wordcloud import WordCloud
 import seaborn as sns
 import warnings
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -16,6 +15,10 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer, PorterStemmer
 import plotly.express as px
+import pyLDAvis
+import pyLDAvis.lda_model
+import joblib
+import streamlit.components.v1 as components
 
 # Download NLTK resources
 nltk.download('punkt')
@@ -69,6 +72,10 @@ grid_search.fit(tfidf_matrix)
 optimal_lda_model = LatentDirichletAllocation(n_components=grid_search.best_params_['n_components'], random_state=42)
 optimal_lda_output = optimal_lda_model.fit_transform(tfidf_matrix)
 
+# Save the LDA model and vectorizer
+joblib.dump(optimal_lda_model, 'lda_model.pkl')
+joblib.dump(tfidf_vectorizer, 'tfidf_vectorizer.pkl')
+
 # Display Topics
 def display_topics(model, feature_names, no_top_words):
     topics = []
@@ -79,16 +86,16 @@ def display_topics(model, feature_names, no_top_words):
 st.write("### LDA Topics")
 topics = display_topics(optimal_lda_model, tfidf_vectorizer.get_feature_names_out(), 10)
 topic_descriptions = {
-    0: "Cardiovascular and  biochemical studies.",
+    0: "Cardiovascular and Biochemical Studies",
     1: "Public Health and Epidemiology",
     2: "Respiratory Viruses",
-    3: "Virology and Immunology ",
+    3: "Virology and Immunology",
     4: "Miscellaneous Terms"
 }
 
 for i, topic in enumerate(topics):
     st.write(f"**Topic {i+1}:** {topic}")
-    st.write(f"*Description:* {topic_descriptions[i]}")
+    st.write(f"*Description:* {topic_descriptions.get(i, 'No description available')}")
 
 # K-Means Clustering
 st.write("### K-Means Clustering")
@@ -128,6 +135,12 @@ cluster_labels_str = [str(label) for label in cluster_labels]
 fig = px.scatter(x=pca_output[:, 0], y=pca_output[:, 1], color=cluster_labels_str)
 st.plotly_chart(fig)
 
+# pyLDAvis visualization
+st.write("### pyLDAvis Visualization")
+panel = pyLDAvis.lda_model.prepare(optimal_lda_model, tfidf_matrix, tfidf_vectorizer)
+html_string = pyLDAvis.prepared_data_to_html(panel)
+components.html(html_string, width=1300, height=800)
+
 # User input for text classification
 st.write("### Predict Topic for Input Text")
 user_input = st.text_area("Enter text (abstract or part of an article):", "")
@@ -138,13 +151,25 @@ if st.button("Predict Topic"):
         lda_output = optimal_lda_model.transform(input_tfidf)
         topic_distribution = lda_output[0]
         predicted_topic = topic_distribution.argmax()
-        st.write(f"**Predicted Topic:** Topic {predicted_topic + 1}")
-        st.write(f"**Topic Keywords:** {topics[predicted_topic]}")
-        st.write(f"**Topic Description:** {topic_descriptions[predicted_topic]}")
+        
+        # Check if input contains any keywords from the topics
+        contains_keywords = any(keyword in processed_input for topic in topics for keyword in topic.split())
+        
+        if contains_keywords:
+            st.write(f"**Predicted Topic:** Topic {predicted_topic + 1}")
+            st.write(f"**Topic Keywords:** {topics[predicted_topic]}")
+            st.write(f"**Topic Description:** {topic_descriptions.get(predicted_topic, 'No description available')}")
 
-        # Predict cluster
-        cluster_label = kmeans_model.predict(lda_output)[0]
-        st.write(f"**Predicted Cluster:** Cluster {cluster_label + 1}")
+            # Display topic probabilities
+            st.write("### Topic Probabilities")
+            for i, prob in enumerate(topic_distribution):
+                st.write(f"**Topic {i+1} Probability:** {prob:.4f}")
+
+            # Predict cluster
+            cluster_label = kmeans_model.predict(lda_output)[0]
+            st.write(f"**Predicted Cluster:** Cluster {cluster_label + 1}")
+        else:
+            st.write("The input text does not contain keywords that determine its topic. It might not be a medical paper.")
     else:
         st.write("Please enter some text to predict its topic and cluster.")
 
