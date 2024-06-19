@@ -78,8 +78,17 @@ def display_topics(model, feature_names, no_top_words):
 
 st.write("### LDA Topics")
 topics = display_topics(optimal_lda_model, tfidf_vectorizer.get_feature_names_out(), 10)
+topic_descriptions = {
+    0: "Cardiovascular and  biochemical studies.",
+    1: "Public Health and Epidemiology",
+    2: "Respiratory Viruses",
+    3: "Virology and Immunology ",
+    4: "Miscellaneous Terms"
+}
+
 for i, topic in enumerate(topics):
     st.write(f"**Topic {i+1}:** {topic}")
+    st.write(f"*Description:* {topic_descriptions[i]}")
 
 # K-Means Clustering
 st.write("### K-Means Clustering")
@@ -131,6 +140,7 @@ if st.button("Predict Topic"):
         predicted_topic = topic_distribution.argmax()
         st.write(f"**Predicted Topic:** Topic {predicted_topic + 1}")
         st.write(f"**Topic Keywords:** {topics[predicted_topic]}")
+        st.write(f"**Topic Description:** {topic_descriptions[predicted_topic]}")
 
         # Predict cluster
         cluster_label = kmeans_model.predict(lda_output)[0]
